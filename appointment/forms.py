@@ -1,6 +1,10 @@
+from typing import Any
 from django import forms
 from .models import Appointment
 from doctor.models import Doctor,AvailableTime
+
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
 
 class AppointmentForm(forms.ModelForm):
     class Meta:
@@ -29,6 +33,21 @@ class AppointmentEditForm(forms.ModelForm):
         super(AppointmentEditForm, self).__init__(*args, **kwargs)
         doctor = self.instance.doctor
         self.fields['time'].queryset = doctor.available_time
+
+    def save(self, commit=True):
+        instance = super(AppointmentEditForm, self).save(commit=False)
+        if commit:
+            instance.save()
+            if instance.status == 'running':
+                meet_link = instance.doctor.meet_link
+                
+                email_subject = 'Join the meet link'
+                email_body = render_to_string('appointment/meet_link_email.html',{'meet_link':meet_link})
+
+                email = EmailMultiAlternatives(email_subject,'',to = [instance.paitent.user.email])
+                email.attach_alternative(email_body,'text/html')
+                email.send()
+            return instance
 
 
 
